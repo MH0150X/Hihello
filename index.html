@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>ইউনুসকে বাঁচাও</title>
+    <style>
+        /* CSS কোড অপরিবর্তিত আছে */
+        :root {
+            --primary-color: #3498db;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            --dark-color: #2c3e50;
+            --light-color: #ecf0f1;
+            font-family: 'Arial', sans-serif;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: var(--dark-color); color: var(--light-color); }
+        #loading-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #1a1a1a; display: flex; flex-direction: column; justify-content: center; align-items: center; z-index: 100; transition: opacity 0.5s; }
+        #loading-screen .loader { border: 8px solid #f3f3f3; border-top: 8px solid var(--primary-color); border-radius: 50%; width: 60px; height: 60px; animation: spin 1.5s linear infinite; }
+        #loading-screen p { margin-top: 20px; font-size: 1.2em; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 50% { transform: rotate(180deg); } 100% { transform: rotate(360deg); } }
+        #start-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; z-index: 99; background-size: cover; background-position: center; transition: opacity 0.5s; }
+        @media (min-width: 768px) { #start-screen { background-image: url('https://placehold.co/1920x1080/2c3e50/ecf0f1?text=ডেস্কটপ+থিম'); } }
+        @media (max-width: 767px) { #start-screen { background-image: url('https://placehold.co/720x1280/16a085/ecf0f1?text=মোবাইল+থিম'); } }
+        #start-button { padding: 20px 40px; font-size: 2.2em; background: linear-gradient(145deg, #e74c3c, #c0392b); color: white; border: none; border-radius: 15px; cursor: pointer; text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.5); box-shadow: 0 8px 15px rgba(0,0,0,0.3), inset 0 -4px 0 #a52d22; transition: transform 0.2s, box-shadow 0.2s; animation: pulse 2s infinite; }
+        #start-button:hover { transform: scale(1.05) translateY(-2px); box-shadow: 0 12px 20px rgba(0,0,0,0.4), inset 0 -4px 0 #a52d22; }
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+        #game-container { position: relative; width: 100%; height: 100%; display: none; }
+        canvas { display: block; width: 100%; height: 100%; background: transparent; }
+        .health-bar-container { position: absolute; top: 20px; width: clamp(200px, 25%, 350px); display: flex; align-items: center; gap: 12px; background-color: rgba(10, 20, 30, 0.65); padding: 8px; border-radius: 8px; border: 1px solid rgba(150, 160, 180, 0.4); backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px); box-shadow: 0 4px 15px rgba(0,0,0,0.3); z-index: 10; }
+        .health-bar-avatar { width: 40px; height: 40px; border-radius: 6px; border: 2px solid rgba(255, 255, 255, 0.7); object-fit: cover; }
+        .health-bar-info { flex-grow: 1; }
+        .health-bar-name { color: #f0f0f0; font-weight: bold; text-shadow: 1px 1px 2px black; font-size: 1em; margin-bottom: 6px; }
+        .health-bar { height: 12px; background-color: #4a1d1d; border-radius: 4px; padding: 0; border: none; overflow: hidden; }
+        .health-bar-inner { height: 100%; background: linear-gradient(90deg, #2ecc71, #58d68d); border-radius: 4px; width: 100%; transition: width 0.5s cubic-bezier(0.25, 1, 0.5, 1); }
+        #hero-health { left: 20px; }
+        #villain-health { right: 20px; flex-direction: row-reverse; }
+        @media (max-width: 767px) { .health-bar-container { width: clamp(120px, 40%, 180px); gap: 8px; padding: 6px; top: 10px; } #hero-health { left: 10px; } #villain-health { right: 10px; } .health-bar-avatar { width: 30px; height: 30px; } .health-bar-name { font-size: 0.8em; } .health-bar { height: 10px; } }
+        #controls-container { position: fixed; bottom: 20px; left: 20px; right: 20px; height: auto; display: flex; justify-content: space-between; align-items: flex-end; z-index: 50; pointer-events: none; }
+        .control-pad { pointer-events: all; }
+        #left-controls { display: flex; gap: 20px; }
+        #right-controls { display: grid; grid-template-areas: ". jump ." "attack shield special"; gap: 15px; }
+        .control-button { width: 60px; height: 60px; background: rgba(255, 255, 255, 0.25); border: 2px solid rgba(255, 255, 255, 0.5); border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 1.8em; color: white; user-select: none; cursor: pointer; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); box-shadow: 0 4px 8px rgba(0,0,0,0.3); transition: all 0.1s ease-out; }
+        @media (max-width: 480px) { .control-button { width: 48px; height: 48px; font-size: 1.3em; } #controls-container { left: 10px; right: 10px; bottom: 15px; flex-direction: row; justify-content: space-between; gap: 10px; } #right-controls { display: grid; grid-template-areas: ". shield ." "attack . special" ". jump ."; grid-template-columns: 48px 48px 48px; grid-template-rows: 48px 48px 48px; gap: 10px; justify-content: center; align-content: center; align-items: center; } #jump-btn { grid-area: jump; } #attack-btn { grid-area: attack; } #special-btn { grid-area: special; } #shield-btn { grid-area: shield; } #left-controls { gap: 10px; justify-content: center; } }
+        .control-button:active { transform: translateY(2px) scale(0.95); box-shadow: 0 2px 4px rgba(0,0,0,0.3); background: rgba(255, 255, 255, 0.4); }
+        #jump-btn { grid-area: jump; } #attack-btn { grid-area: attack; } #special-btn { grid-area: special; } #shield-btn { grid-area: shield; }
+        .cooldown { background: rgba(50, 50, 50, 0.7) !important; color: rgba(255, 255, 255, 0.5) !important; pointer-events: none !important; position: relative; overflow: hidden; box-shadow: none; }
+        .cooldown::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5); }
+        .cooldown::after { content: attr(data-cooldown); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.8em; font-weight: bold; color: white; }
+        #game-over-message { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: clamp(3em, 10vw, 6em); font-weight: bold; z-index: 100; display: none; text-align: center; animation: gameOverAnim 1s ease-out forwards; }
+        .win-message { color: #2ecc71; text-shadow: 0 0 10px #2ecc71, 0 0 20px #fff, 0 0 30px #fff; }
+        .lose-message { color: #e74c3c; text-shadow: 0 0 10px #e74c3c, 0 0 20px #000, 0 0 30px #000; }
+        @keyframes gameOverAnim { from { opacity: 0; transform: translate(-50%, -50%) scale(0.5); } to { opacity: 1; transform: translate(-50%, -50%) scale(1); } }
+    </style>
+</head>
+<body>
+    <div id="loading-screen">
+        <div class="loader"></div>
+        <p>গেম লোড হচ্ছে...</p>
+    </div>
+
+    <div id="start-screen" style="display: none;">
+        <button id="start-button">গেম শুরু করুন</button>
+    </div>
+
+    <div id="game-container">
+        <div id="hero-health" class="health-bar-container">
+            <img id="hero-avatar" src="" class="health-bar-avatar">
+            <div class="health-bar-info">
+                <div id="hero-name" class="health-bar-name">হিরো</div>
+                <div class="health-bar"><div id="hero-health-inner" class="health-bar-inner"></div></div>
+            </div>
+        </div>
+        <div id="villain-health" class="health-bar-container">
+            <img id="villain-avatar" src="" class="health-bar-avatar">
+            <div class="health-bar-info">
+                <div id="villain-name" class="health-bar-name">ভিলেন</div>
+                <div class="health-bar"><div id="villain-health-inner" class="health-bar-inner"></div></div>
+            </div>
+        </div>
+
+        <canvas id="gameCanvas"></canvas>
+
+        <div id="game-over-message"></div>
+
+        <div id="controls-container">
+            <div id="left-controls" class="control-pad">
+                <button id="left-btn" class="control-button">←</button>
+                <button id="right-btn" class="control-button">→</button>
+            </div>
+            <div id="right-controls" class="control-pad">
+                <button id="jump-btn" class="control-button">↑</button>
+                <button id="attack-btn" class="control-button">⚔️</button>
+                <button id="shield-btn" class="control-button">☂️</button>
+                <button id="special-btn" class="control-button">🔥</button>
+            </div>
+        </div>
+    </div>
+    
+    <audio id="bg-music" loop src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" preload="auto"></audio>
+    <audio id="attack-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3" preload="auto"></audio>
+    <audio id="jump-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3" preload="auto"></audio>
+    <audio id="powerup-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3" preload="auto"></audio>
+    <audio id="shield-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3" preload="auto"></audio>
+    <audio id="game-over-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3" preload="auto"></audio>
+    <audio id="urine-attack-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-6.mp3" preload="auto"></audio>
+    <audio id="blow-attack-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-7.mp3" preload="auto"></audio>
+    <audio id="chada-attack-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-8.mp3" preload="auto"></audio>
+    <audio id="election-attack-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-9.mp3" preload="auto"></audio>
+    <audio id="bird-dialogue-sound" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-11.mp3" preload="auto"></audio>
+    <audio id="hero-dialogue-jump" src="path/to/your/jump_sound.mp3" preload="auto"></audio>
+    <audio id="hero-dialogue-attack" src="path/to/your/attack_sound.mp3" preload="auto"></audio>
+
+
+<script>
+// অ্যান্টি-ইন্সপেক্ট
+document.addEventListener('contextmenu', event => event.preventDefault());
+document.onkeydown = function(e) {
+    if (e.keyCode == 123 || (e.ctrlKey && e.shiftKey && (e.keyCode == 'I'.charCodeAt(0) || e.keyCode == 'J'.charCodeAt(0) || e.keyCode == 'C'.charCodeAt(0))) || (e.ctrlKey && e.keyCode == 'U'.charCodeAt(0))) {
+        return false;
+    }
+};
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+let gameRunning = false;
+let gameOver = false;
+let parallaxOffset = 0;
+let dayNightCycle = 0;
+
+// দিন-রাত চক্রের গতি বাড়ানো হয়েছে
+const timeTransitionSpeed = 0.0015;
+
+// রিডাইরেক্ট URL
+const redirectUrl = "https://www.example.com"; // আপনার পছন্দের লিঙ্ক এখানে দিন
+
+function triggerVibration(pattern = 25) {
+    if (window.navigator && window.navigator.vibrate) {
+        try { navigator.vibrate(pattern); } catch (e) { console.log("Vibration failed", e); }
+    }
+}
+
+const ASSETS = {
+    hero: { idle: 'https://placehold.co/150x180/3498db/ffffff?text=Hero+Idle', run: 'https://placehold.co/150x180/2980b9/ffffff?text=Hero+Run', jump: 'https://placehold.co/150x180/1f618d/ffffff?text=Hero+Jump', attack: 'https://placehold.co/200x180/5dade2/ffffff?text=Hero+Attack', special: 'https://placehold.co/250x180/85c1e9/ffffff?text=Hero+Special', shield: 'https://placehold.co/180x200/5499c7/ffffff?text=Hero+Shield', hurt: 'https://placehold.co/150x180/a9cce3/ffffff?text=Hero+Hurt', out: 'https://placehold.co/180x150/d4e6f1/ffffff?text=Hero+Out' },
+    villain: { idle: 'https://placehold.co/160x190/e74c3c/ffffff?text=Villain+Idle', run: 'https://placehold.co/160x190/c0392b/ffffff?text=Villain+Run', jump: 'https://placehold.co/160x190/a93226/ffffff?text=Villain+Jump', hurt: 'https://placehold.co/160x190/f5b7b1/ffffff?text=Villain+Hurt', out: 'https://placehold.co/190x160/fADBD8/ffffff?text=Villain+Out', attacks: { urine: 'https://placehold.co/220x190/f1c40f/ffffff?text=Urine+Atk', blow: 'https://placehold.co/220x190/aed6f1/ffffff?text=Blow+Atk', chada: 'https://placehold.co/220x190/f5b041/ffffff?text=Chada+Atk', election: 'https://placehold.co/220x190/af7ac5/ffffff?text=Election+Atk' } },
+    projectiles: { 
+        // আপনি এই প্লেসহোল্ডার ইমেজগুলোর URL পরিবর্তন করে আপনার পছন্দের ছবি ব্যবহার করতে পারেন
+        hero_special: 'https://placehold.co/80x50/ADD8E6/000000?text=Special', // হিরোর স্পেশাল অ্যাটাকের প্লেসহোল্ডার
+        villain_urine: 'https://placehold.co/60x40/FFFF00/000000?text=Urine', // ভিলেনের ইউরিন অ্যাটাকের প্লেসহোল্ডার
+        villain_blow: 'https://placehold.co/60x40/FF00FF/FFFFFF?text=Blow', // ভিলেনের ব্লো অ্যাটাকের প্লেসহোল্ডার
+        villain_chada: 'https://placehold.co/60x40/00FFFF/000000?text=Chada', // ভিলেনের চাদা অ্যাটাকের প্লেসহোল্ডার
+        villain_election: 'https://placehold.co/60x40/FF4500/FFFFFF?text=Election' // ভিলেনের ইলেকশন অ্যাটাকের প্লেসহোল্ডার
+    },
+    powerups: { health: 'https://i.imgur.com/Guahcab.png' },
+    environment: { bird: 'https://i.imgur.com/l6c32xi.gif', sky: 'https://i.imgur.com/2gMxkwF.jpeg', sun: 'https://i.imgur.com/flJCvnZ.png', moon: 'https://i.imgur.com/eKBeccg.png', cloud: 'https://i.imgur.com/idu05Ur.png', ground: 'https://i.imgur.com/ptglOIp.png', house: 'https://i.imgur.com/vQBrMiE.png' }
+};
+
+const images = {};
+
+function loadAssets(callback) {
+    const assetsToLoad = [];
+    function collectAssetUrls(obj) { for (const key in obj) { if (typeof obj[key] === 'string') assetsToLoad.push(obj[key]); else if (typeof obj[key] === 'object') collectAssetUrls(obj[key]); } }
+    collectAssetUrls(ASSETS);
+    if (assetsToLoad.length === 0) { callback(); return; }
+    let loadedCount = 0;
+    assetsToLoad.forEach(src => { const img = new Image(); img.src = src; images[src] = img; img.onload = img.onerror = () => { if (++loadedCount === assetsToLoad.length) callback(); }; });
+}
+
+let hero, villain, powerups, projectiles, stars = [], clouds = [], bird;
+
+class Character {
+    constructor(x, y, width, height, health, speed, assets) { Object.assign(this, { x, y, width, height, maxHealth: health, health, speed, dx: 0, dy: 0, gravity: 0.8, jumpPower: -20, isJumping: true, isAttacking: false, isShielded: false, direction: 'right', isHurt: false, isOut: false, currentState: 'idle', assets }); }
+    draw() {
+        if (this.isOut) this.currentState = 'out';
+        else if (this.isHurt) this.currentState = 'hurt';
+        else if (this.isAttacking) {} 
+        else if (this.isShielded) this.currentState = 'shield';
+        else if (this.isJumping) this.currentState = 'jump';
+        else if (this.dx !== 0) this.currentState = 'run';
+        else this.currentState = 'idle';
+        let assetSrc = this.assets[this.currentState] || (this.assets.attacks && this.assets.attacks[this.currentState]) || this.assets.idle;
+        const img = images[assetSrc];
+        ctx.save();
+        if (this.direction === 'left') { ctx.scale(-1, 1); if (img) ctx.drawImage(img, -this.x - this.width, this.y, this.width, this.height); } 
+        else { if (img) ctx.drawImage(img, this.x, this.y, this.width, this.height); }
+        ctx.restore();
+    }
+    update() {
+        if (this.isOut) { this.dx = 0; return; }
+        this.x += this.dx; this.y += this.dy;
+        if (this.y + this.height < canvas.height - groundHeight) { this.dy += this.gravity; this.isJumping = true; } 
+        else { this.dy = 0; this.isJumping = false; this.y = canvas.height - groundHeight - this.height; }
+        this.x = Math.max(0, Math.min(this.x, canvas.width - this.width));
+        if (this.health <= 0) { this.health = 0; this.isOut = true; if(!gameOver) triggerGameOver(this === hero ? 'ভিলেন জিতেছে!' : 'হিরো জিতেছে!'); }
+        this.draw();
+    }
+    takeDamage(amount) { 
+        if (this.isShielded || this.isOut) return; 
+        this.health -= amount; 
+        // নিশ্চিত করুন স্বাস্থ্য যেন ০ এর নিচে না যায়
+        if (this.health < 0) {
+            this.health = 0;
+        }
+        this.isHurt = true; 
+        triggerVibration([100, 30, 100]); 
+        setTimeout(() => this.isHurt = false, 500); 
+        updateHealthBars(); 
+    }
+    jump() { if (!this.isJumping && !this.isOut) { this.dy = this.jumpPower; this.isJumping = true; playSound('jump-sound'); } } 
+}
+
+class Villain extends Character {
+    constructor(x, y, width, height, health, speed, assets) { 
+        super(x, y, width, height, health, speed, assets); 
+        this.attackCooldown = 0; 
+        this.moveCooldown = 0; 
+        this.attackRange = 400; // আক্রমণের দূরত্ব
+        this.jumpAttackChance = 0.6; // লাফিয়ে অ্যাটাক করার সম্ভাবনা
+    }
+
+    ai() {
+        if (this.isOut || this.isAttacking) return;
+
+        // ভিলেনের মুভমেন্ট এবং আক্রমণের সিদ্ধান্ত
+        const dxToHero = Math.abs(this.x - hero.x);
+        const dyToHero = Math.abs(this.y - hero.y);
+        const inAttackRange = dxToHero < this.attackRange && dyToHero < 150; // আনুমানিক উচ্চতা
+
+        // ভিলেনের মুভমেন্ট
+        if (this.moveCooldown-- <= 0) {
+            const action = Math.random();
+            if (dxToHero > 100) { // হিরো থেকে দূরে থাকলে এগিয়ে আসবে
+                this.dx = (hero.x > this.x ? 1 : -1) * this.speed;
+                this.direction = hero.x > this.x ? 'right' : 'left';
+            } else if (dxToHero < 50) { // হিরোর খুব কাছে থাকলে সরে যাবে
+                this.dx = (hero.x > this.x ? -1 : 1) * this.speed / 2;
+                this.direction = hero.x > this.x ? 'right' : 'left'; // দিক পরিবর্তন করবে না
+            } else { // নির্দিষ্ট দূরত্বের মধ্যে থাকলে স্থির বা অল্প নড়াচড়া
+                this.dx = 0;
+            }
+
+            // হিরো যদি লাফিয়ে থাকে, তাহলে ভিলেনও লাফিয়ে অ্যাটাক করার চেষ্টা করবে
+            if (hero.isJumping && !this.isJumping && inAttackRange && Math.random() < this.jumpAttackChance) {
+                this.jump();
+                // অ্যাটাক করার সময় জিরো ড্যামেজ অ্যাটাক হতে পারে, তাই অ্যাটাক ট্রিগার করা হচ্ছে
+                if (!this.isAttacking) {
+                    const attacks = Object.keys(this.assets.attacks); 
+                    const attackType = attacks[Math.floor(Math.random() * attacks.length)]; 
+                    this.performAttack(attackType); 
+                    this.attackCooldown = Math.random() * 60 + 30; // দ্রুত অ্যাটাক
+                }
+            } else if (action < 0.2 && !this.isJumping) { // মাঝে মাঝে এমনিতেই লাফাবে
+                this.jump();
+            }
+
+            this.moveCooldown = Math.random() * 40 + 20; // মুভমেন্ট কুলডাউন কমানো হয়েছে
+        }
+
+        // ভিলেনের অ্যাটাক
+        if (this.attackCooldown-- <= 0 && inAttackRange && !this.isAttacking) {
+            const attacks = Object.keys(this.assets.attacks); 
+            const attackType = attacks[Math.floor(Math.random() * attacks.length)]; 
+            this.performAttack(attackType); 
+            this.attackCooldown = Math.random() * 80 + 40; // অ্যাটাক কুলডাউন কমানো হয়েছে
+        }
+    }
+
+    performAttack(type) {
+        this.isAttacking = true; 
+        this.currentState = type; 
+        this.dx = 0; 
+        this.direction = hero.x > this.x ? 'right' : 'left'; 
+        playSound(`${type.toLowerCase()}-attack-sound`);
+        
+        let projectileAsset;
+        let projectileWidth, projectileHeight;
+        let damageAmount = 0; // বেসিক ড্যামেজ, পরে টাইপ অনুযায়ী সেট হবে
+
+        switch(type) {
+            case 'urine': 
+                projectileAsset = ASSETS.projectiles.villain_urine; 
+                projectileWidth = 60; 
+                projectileHeight = 40; 
+                damageAmount = 5; // ইউরিন অ্যাটাকের ড্যামেজ কমানো হয়েছে
+                break;
+            case 'blow': 
+                projectileAsset = ASSETS.projectiles.villain_blow; 
+                projectileWidth = 70; 
+                projectileHeight = 50; 
+                damageAmount = 7; // ব্লো অ্যাটাকের ড্যামেজ কমানো হয়েছে
+                break;
+            case 'chada': 
+                projectileAsset = ASSETS.projectiles.villain_chada; 
+                projectileWidth = 80; 
+                projectileHeight = 60; 
+                damageAmount = 10; // চাদা অ্যাটাকের ড্যামেজ কমানো হয়েছে
+                break;
+            case 'election': 
+                projectileAsset = ASSETS.projectiles.villain_election; 
+                projectileWidth = 90; 
+                projectileHeight = 70; 
+                damageAmount = 12; // ইলেকশন অ্যাটাকের ড্যামেজ কমানো হয়েছে
+                break;
+            default: 
+                projectileAsset = ASSETS.projectiles.villain_urine; 
+                projectileWidth = 60; 
+                projectileHeight = 40;
+                damageAmount = 5;
+        }
+
+        setTimeout(() => { 
+            if (this.isOut) return; 
+
+            // প্রজেক্টাইলের শুরুর X পজিশন: ভিলেনের দিক অনুযায়ী হাত থেকে বের হবে
+            let projectileX = this.x;
+            if (this.direction === 'right') {
+                projectileX = this.x + this.width - 20; // ডান দিকে গেলে ভিলেনের ডান পাশ থেকে, একটু ভিতরের দিকে
+            } else {
+                projectileX = this.x - 20; // বাম দিকে গেলে ভিলেনের বাম পাশ থেকে, একটু ভিতরের দিকে
+            }
+
+            // প্রজেক্টাইলের শুরুর Y পজিশন: ভিলেনের বুকের মাঝামাঝি থেকে (হাত যেখানে থাকে)
+            const projectileY = this.y + this.height * 0.4; // আনুমানিক হাতের উচ্চতা, যাতে একটু উপরের দিকে থাকে
+
+            projectiles.push(new Projectile(
+                projectileX, 
+                projectileY, 
+                this.direction, 
+                'villain', 
+                damageAmount, 
+                projectileAsset, 
+                projectileWidth, 
+                projectileHeight
+            )); 
+            this.isAttacking = false; 
+        }, 400); // অ্যাটাক অ্যানিমেশন টাইমিং কমানো হয়েছে
+    }
+    update() { 
+        if (!gameOver) this.ai(); 
+        super.update(); 
+    }
+}
+
+class Projectile {
+    constructor(x, y, direction, owner, damage, asset, width, height) { 
+        Object.assign(this, {x, y, direction, owner, damage, asset, width, height, speed: 15}); 
+        this.img = images[asset]; // প্রজেক্টাইলের ইমেজ লোড করা
+    }
+    update() { 
+        this.x += this.direction === 'right' ? this.speed : -this.speed; 
+        this.draw(); 
+    }
+    draw() { 
+        // যদি ইমেজ লোড হয়ে থাকে, তবে ইমেজ আঁকা হবে, অন্যথায় একটি ডিফল্ট আয়তক্ষেত্র আঁকা হবে।
+        if (this.img && this.img.complete) { 
+            ctx.drawImage(this.img, this.x, this.y, this.width, this.height); 
+        } else { 
+            ctx.fillStyle = this.owner === 'hero' ? 'cyan' : 'yellow'; 
+            ctx.fillRect(this.x, this.y, this.width, this.height); 
+        }
+    }
+}
+
+class PowerUp {
+    constructor(x, y, type) { Object.assign(this, {x, y, width: 50, height: 50, type, asset: ASSETS.powerups[type], dy: 0, gravity: 0.5, onGround: false}); this.img = images[this.asset]; }
+    update() { if (!this.onGround) { this.dy += this.gravity; this.y += this.dy; const groundPos = canvas.height - groundHeight - this.height; if (this.y >= groundPos) { this.y = groundPos; this.onGround = true; } } this.draw(); }
+    draw() { if(this.img) ctx.drawImage(this.img, this.x, this.y, this.width, this.height); }
+}
+
+const birdInfo = { x: -100, y: 100, width: 80, height: 60, speed: 2, timer: 0, interval: 600 };
+
+function init() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    groundHeight = canvas.height / 3.5;
+    const heroWidth = 30;
+    const heroHeight = 50;
+    const villainWidth = 30;
+    const villainHeight = 50;
+    hero = new Character(100, canvas.height - groundHeight - heroHeight, heroWidth, heroHeight, 100, 5, ASSETS.hero);
+    villain = new Villain(canvas.width - villainWidth - 100, canvas.height - groundHeight - villainHeight, villainWidth, villainHeight, 150, 4, ASSETS.villain);
+    powerups = []; projectiles = [];
+    cooldowns.special.last = -cooldowns.special.time;
+    cooldowns.shield.last = -cooldowns.shield.time;
+    document.getElementById('hero-avatar').src = ASSETS.hero.idle;
+    document.getElementById('villain-avatar').src = ASSETS.villain.idle;
+    initBackgroundElements();
+    updateHealthBars();
+}
+
+function initBackgroundElements() {
+    stars = []; 
+    // তারার সংখ্যা কমানো হয়েছে এবং ছোট করা হয়েছে পারফরম্যান্সের জন্য
+    for (let i = 0; i < 75; i++) { 
+        stars.push({ x: Math.random() * canvas.width, y: Math.random() * (canvas.height * 0.6), radius: Math.random() * 1 + 0.5, alpha: Math.random() * 0.5 + 0.5 }); 
+    }
+    clouds = []; for (let i = 0; i < 10; i++) { clouds.push({ x: Math.random() * canvas.width, y: 50 + Math.random() * 100, width: 150 + Math.random() * 100, height: 80 + Math.random() * 50, speed: 0.1 + Math.random() * 0.2 }); }
+}
+
+const keys = { left: false, right: false };
+const cooldowns = { special: { time: 10000, last: 0 }, shield: { time: 15000, last: 0 } };
+
+function setupControls() {
+    document.getElementById('jump-btn').addEventListener('touchstart', (e) => { e.preventDefault(); hero.jump(); triggerVibration(); });
+    document.getElementById('attack-btn').addEventListener('touchstart', (e) => { e.preventDefault(); heroAttack(); triggerVibration(); });
+    document.getElementById('special-btn').addEventListener('touchstart', (e) => { e.preventDefault(); heroSpecialAttack(); triggerVibration(50); });
+    document.getElementById('shield-btn').addEventListener('touchstart', (e) => { e.preventDefault(); heroShield(); triggerVibration(50); });
+    const handlePress = (key, value) => (e) => { e.preventDefault(); keys[key] = value; };
+    const leftBtn = document.getElementById('left-btn');
+    const rightBtn = document.getElementById('right-btn');
+    leftBtn.addEventListener('touchstart', handlePress('left', true), { passive: false });
+    leftBtn.addEventListener('touchend', handlePress('left', false), { passive: false });
+    rightBtn.addEventListener('touchstart', handlePress('right', true), { passive: false });
+    rightBtn.addEventListener('touchend', handlePress('right', false), { passive: false });
+    document.getElementById('jump-btn').addEventListener('mousedown', () => { hero.jump(); triggerVibration(); });
+    document.getElementById('attack-btn').addEventListener('mousedown', () => { heroAttack(); triggerVibration(); });
+    document.getElementById('special-btn').addEventListener('mousedown', () => { heroSpecialAttack(); triggerVibration(50); });
+    document.getElementById('shield-btn').addEventListener('mousedown', () => { heroShield(); triggerVibration(50); });
+    leftBtn.addEventListener('mousedown', handlePress('left', true));
+    leftBtn.addEventListener('mouseup', handlePress('left', false));
+    rightBtn.addEventListener('mousedown', handlePress('right', true));
+    rightBtn.addEventListener('mouseup', handlePress('right', false));
+    window.addEventListener('keydown', e => {
+        if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = true;
+        if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = true;
+        if (e.key === ' ' || e.key === 'ArrowUp' || e.key.toLowerCase() === 'w') { hero.jump(); triggerVibration(); }
+        if (e.key.toLowerCase() === 'j') { heroAttack(); triggerVibration(); }
+        if (e.key.toLowerCase() === 'k') { heroSpecialAttack(); triggerVibration(50); }
+        if (e.key.toLowerCase() === 'l') { heroShield(); triggerVibration(50); }
+    });
+    window.addEventListener('keyup', e => {
+        if (e.key === 'ArrowLeft' || e.key.toLowerCase() === 'a') keys.left = false;
+        if (e.key === 'ArrowRight' || e.key.toLowerCase() === 'd') keys.right = false;
+    });
+}
+
+function heroAttack() {
+    if (hero.isAttacking || hero.isOut) return;
+    hero.isAttacking = true; hero.currentState = 'attack'; playSound('attack-sound');
+    setTimeout(() => {
+        hero.isAttacking = false;
+        const attackHitbox = { x: hero.direction === 'right' ? hero.x : hero.x - hero.width, y: hero.y, width: hero.width * 1.5, height: hero.height };
+        if (attackHitbox.x < villain.x + villain.width && attackHitbox.x + attackHitbox.width > villain.x && attackHitbox.y < villain.y + villain.height && attackHitbox.height + attackHitbox.y > villain.y) {
+            // নিশ্চিত করা হচ্ছে যে শুধুমাত্র সামনে থাকা শত্রুকে আঘাত করবে
+            if ((hero.direction === 'right' && villain.x > hero.x) || (hero.direction === 'left' && villain.x < hero.x)) { 
+                villain.takeDamage(5); // বেসিক অ্যাটাকের ড্যামেজ কমানো হয়েছে
+            }
+        }
+    }, 400);
+}
+
+function startCooldown(button, duration) {
+    button.classList.add('cooldown'); let secondsLeft = Math.ceil(duration / 1000);
+    const update = () => button.setAttribute('data-cooldown', secondsLeft); update();
+    const interval = setInterval(() => { secondsLeft--; if (secondsLeft > 0) update(); else { clearInterval(interval); button.classList.remove('cooldown'); button.removeAttribute('data-cooldown'); } }, 1000);
+}
+
+function heroSpecialAttack() {
+    const now = Date.now(); if (now - cooldowns.special.last < cooldowns.special.time || hero.isOut) return;
+    cooldowns.special.last = now; startCooldown(document.getElementById('special-btn'), cooldowns.special.time);
+    hero.isAttacking = true; hero.currentState = 'special'; playSound('powerup-sound'); triggerVibration(75);
+    setTimeout(() => { 
+        if(hero.isOut) return; 
+        const projectileWidth = 80; 
+        const projectileHeight = 50; 
+
+        // প্রজেক্টাইলের শুরুর X পজিশন: হিরোর দিক অনুযায়ী হাত থেকে বের হবে
+        let projectileX = hero.x;
+        if (hero.direction === 'right') {
+            projectileX = hero.x + hero.width - 20; // ডান দিকে গেলে হিরোর ডান পাশ থেকে, একটু ভিতরের দিকে
+        } else {
+            projectileX = hero.x - 20; // বাম দিকে গেলে হিরোর বাম পাশ থেকে, একটু ভিতরের দিকে
+        }
+
+        // প্রজেক্টাইলের শুরুর Y পজিশন: হিরোর বুকের মাঝামাঝি থেকে (হাত যেখানে থাকে)
+        const projectileY = hero.y + hero.height * 0.4; // আনুমানিক হাতের উচ্চতা, যাতে একটু উপরের দিকে থাকে
+
+        projectiles.push(new Projectile(
+            projectileX, 
+            projectileY, 
+            hero.direction, 
+            'hero', 
+            15, // স্পেশাল অ্যাটাকের ড্যামেজ কমানো হয়েছে
+            ASSETS.projectiles.hero_special, 
+            projectileWidth, 
+            projectileHeight
+        )); 
+        hero.isAttacking = false; 
+    }, 500);
+}
+
+function heroShield() {
+    const now = Date.now(); if (now - cooldowns.shield.last < cooldowns.shield.time || hero.isOut) return;
+    cooldowns.shield.last = now; startCooldown(document.getElementById('shield-btn'), cooldowns.shield.time);
+    hero.isShielded = true; playSound('shield-sound'); triggerVibration(75);
+    setTimeout(() => hero.isShielded = false, 5000);
+}
+
+function handlePlayerMovement() {
+    hero.dx = 0;
+    if (keys.left) { hero.dx = -hero.speed; hero.direction = 'left'; }
+    if (keys.right) { hero.dx = hero.speed; hero.direction = 'right'; }
+}
+
+let groundHeight = 100;
+
+function drawBackground() {
+    dayNightCycle += timeTransitionSpeed; 
+    if (dayNightCycle >= Math.PI * 2) dayNightCycle = 0;
+    
+    // দিনের আলো: 0 (রাত) থেকে 1 (দিন) পর্যন্ত
+    const lightness = Math.max(0, Math.sin(dayNightCycle)); // দিনের বেলায় 0 থেকে 1, রাতের বেলায় 0
+
+    // আকাশের রং পরিবর্তন: দিনের বেলায় হালকা নীল, রাতের বেলায় গাঢ় নীল/বেগুনি
+    const r = Math.floor(135 + 120 * lightness); 
+    const g = Math.floor(206 + 50 * lightness);  
+    const b = Math.floor(235 - 50 * lightness);  
+    
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // তারার স্বচ্ছতা পরিবর্তন: রাতের বেলায় 0 থেকে 1 পর্যন্ত মসৃণ ট্রানজিশন
+    const nightProgress = Math.max(0, Math.min(1, (Math.cos(dayNightCycle - Math.PI) + 1) / 2));
+    drawStars(nightProgress); 
+
+    drawSunAndMoon();
+    
+    drawBird(); 
+    drawClouds();
+
+    drawLayer(parallaxOffset, 0.1, () => {
+        const houseImg = images[ASSETS.environment.house];
+        if (houseImg) ctx.drawImage(houseImg, 0, canvas.height - groundHeight - 160, canvas.width, 150);
+    });
+
+    // মাটির স্ক্রলিং গতি কমানো হয়েছে
+    drawLayer(parallaxOffset, 0.2, () => {
+        const groundImg = images[ASSETS.environment.ground];
+        if (groundImg) ctx.drawImage(groundImg, 0, canvas.height - groundHeight - 20, canvas.width, groundHeight + 20);
+    });
+}
+
+function drawStars(nightProgress) {
+    ctx.save();
+    stars.forEach(star => { 
+        ctx.beginPath(); ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2); 
+        ctx.globalAlpha = star.alpha * nightProgress; 
+        ctx.fillStyle = 'white'; 
+        ctx.fill(); 
+    });
+    ctx.restore();
+}
+
+function drawSunAndMoon() {
+    const sunImg = images[ASSETS.environment.sun];
+    const moonImg = images[ASSETS.environment.moon];
+    const celestialWidth = 120, celestialHeight = 120;
+    const travelRadius = Math.min(canvas.width, canvas.height) / 2 * 0.8; // ভ্রমণ ব্যাসার্ধ
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height * 0.4; // আকাশ বরাবর মাঝখানে রাখা
+
+    // সূর্যের অবস্থান
+    const sunAngle = dayNightCycle - Math.PI / 2; // দিনের শুরুতে উপরে
+    const sunX = centerX + travelRadius * Math.cos(sunAngle) - celestialWidth / 2;
+    const sunY = centerY + travelRadius * Math.sin(sunAngle) - celestialHeight / 2;
+
+    // চাঁদের অবস্থান (সূর্যের থেকে 180 ডিগ্রি দূরে)
+    const moonAngle = dayNightCycle + Math.PI / 2; // রাতের শুরুতে উপরে
+    const moonX = centerX + travelRadius * Math.cos(moonAngle) - celestialWidth / 2;
+    const moonY = centerY + travelRadius * Math.sin(moonAngle) - celestialHeight / 2;
+
+    // সূর্য সবসময় উজ্জ্বল থাকবে
+    ctx.globalAlpha = 1; 
+    if (sunImg) ctx.drawImage(sunImg, sunX, sunY, celestialWidth, celestialHeight);
+
+    // চাঁদ সবসময় উজ্জ্বল থাকবে
+    ctx.globalAlpha = 1; 
+    if (moonImg) ctx.drawImage(moonImg, moonX, moonY, celestialWidth, celestialHeight);
+}
+
+// পাখির আগমন নিশ্চিত করার জন্য ফাংশনের লজিক ঠিক করা হয়েছে
+function drawBird() {
+    // পাখি যদি স্ক্রিনে থাকে, তবে তাকে সচল রাখা হবে
+    if (birdInfo.x > -birdInfo.width) {
+        birdInfo.x -= birdInfo.speed;
+    }
+
+    // টাইমার বাড়ানো হচ্ছে
+    birdInfo.timer++;
+    // নির্দিষ্ট সময় পর নতুন পাখি আনার চেষ্টা করা হবে
+    if (birdInfo.timer > birdInfo.interval) {
+        birdInfo.timer = 0; // টাইমার রিসেট করা হলো
+        // যদি আগের পাখি স্ক্রিনের বাইরে চলে গিয়ে থাকে, তবেই নতুন পাখি আসবে
+        if (birdInfo.x <= -birdInfo.width) {
+            birdInfo.x = canvas.width; // ডান দিক থেকে শুরু হবে
+            birdInfo.y = 50 + Math.random() * 150;
+            playSound('bird-dialogue-sound');
+        }
+    }
+
+    // পাখি যদি ক্যানভাসের দৃশ্যমান অংশে থাকে তবেই আঁকা হবে
+    const birdImg = images[ASSETS.environment.bird];
+    if (birdImg && birdInfo.x < canvas.width && birdInfo.x > -birdInfo.width) {
+        ctx.drawImage(birdImg, birdInfo.x, birdInfo.y, birdInfo.width, birdInfo.height);
+    }
+}
+
+function drawClouds() {
+    const cloudImg = images[ASSETS.environment.cloud];
+    if (cloudImg) { clouds.forEach(cloud => { cloud.x += cloud.speed; if (cloud.x > canvas.width) { cloud.x = -cloud.width; } ctx.drawImage(cloudImg, cloud.x, cloud.y, cloud.width, cloud.height); }); }
+}
+
+function drawLayer(offset, speed, drawCallback) {
+    const layerOffset = (offset * speed) % canvas.width;
+    ctx.save(); ctx.translate(-layerOffset, 0); drawCallback();
+    ctx.translate(canvas.width, 0); drawCallback();
+    ctx.restore();
+}
+
+function updateHealthBars() {
+    // স্বাস্থ্য যদি ০ হয়, তাহলে উইডথ ০% হবে।
+    document.getElementById('hero-health-inner').style.width = `${(hero.health / hero.maxHealth) * 100}%`;
+    document.getElementById('villain-health-inner').style.width = `${(villain.health / villain.maxHealth) * 100}%`;
+}
+
+let powerupTimer = 0;
+const powerupInterval = 1800;
+function handlePowerups() {
+    if (++powerupTimer > powerupInterval) { powerupTimer = 0; powerups.push(new PowerUp(Math.random()*(canvas.width-50), -50, 'health')); }
+    powerups.forEach((p, i) => {
+        p.update();
+        // Corrected collision detection for power-ups
+        if (hero.x < p.x + p.width && 
+            hero.x + hero.width > p.x && // Corrected this line
+            hero.y < p.y + p.height && 
+            hero.y + hero.height > p.y) {
+            
+            if (p.type === 'health') hero.health = Math.min(hero.maxHealth, hero.health + 20);
+            playSound('powerup-sound'); triggerVibration([50, 50, 50]);
+            powerups.splice(i, 1); updateHealthBars();
+        }
+    });
+}
+
+function handleCollisions() {
+    projectiles.forEach((p, pIndex) => {
+        let target = p.owner === 'hero' ? villain : hero;
+        
+        // প্রজেক্টাইল এবং টার্গেটের মধ্যে সংঘর্ষ পরীক্ষা
+        // প্রজেক্টাইল এবং টার্গেটের bounding boxs এর ওভারল্যাপ পরীক্ষা করা হচ্ছে
+        if (p.x < target.x + target.width && 
+            p.x + p.width > target.x && 
+            p.y < target.y + target.height && 
+            p.y + p.height > target.y) {
+            
+            target.takeDamage(p.damage); // প্রজেক্টাইলের ড্যামেজ প্রয়োগ করা হচ্ছে
+            projectiles.splice(pIndex, 1); // প্রজেক্টাইল সরিয়ে ফেলা হচ্ছে
+        }
+        // প্রজেক্টাইল স্ক্রিনের বাইরে চলে গেলে তা ডিলিট করা হবে
+        else if (p.x > canvas.width || p.x + p.width < 0) {
+            projectiles.splice(pIndex, 1);
+        }
+    });
+}
+
+function triggerGameOver(message) {
+    if (gameOver) return; 
+    gameOver = true; 
+    playSound('game-over-sound');
+
+    const msgEl = document.getElementById('game-over-message');
+    msgEl.textContent = message;
+    if (message.includes('হিরো')) { 
+        msgEl.className = 'win-message'; 
+    } else { 
+        msgEl.className = 'lose-message'; 
+    }
+    msgEl.style.display = 'block';
+
+    // রিডাইরেক্ট লজিক
+    setTimeout(() => {
+        const lastRedirectDate = localStorage.getItem('lastRedirectDate');
+        const today = new Date().toDateString();
+
+        if (lastRedirectDate !== today) {
+            // যদি আজকের দিনে এখনও রিডাইরেক্ট না হয়ে থাকে
+            localStorage.setItem('lastRedirectDate', today);
+            window.location.href = redirectUrl;
+        } else {
+            // আজকের দিনে একবার রিডাইরেক্ট হয়ে থাকলে, আর হবে না
+            console.log("Already redirected today. Skipping redirection.");
+        }
+    }, 2000); // 2 সেকেন্ড পর রিডাইরেক্ট হবে
+}
+
+function playSound(id) {
+    const sound = document.getElementById(id);
+    if(sound && sound.src && sound.src.includes('http')) {
+        sound.currentTime = 0;
+        sound.play().catch(e => { /* console.log(`Could not play sound: ${id}`, e); */ });
+    }
+}
+
+function gameLoop() {
+    if (!gameRunning) return;
+    if (!gameOver) {
+        requestAnimationFrame(gameLoop);
+        parallaxOffset = hero.x;
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // প্রতি ফ্রেমে ক্যানভাস পরিষ্কার করা
+
+        drawBackground(); // ব্যাকগ্রাউন্ড আঁকা (আকাশের রং, তারা, সূর্য/চাঁদ, পাখি, মেঘ)
+        
+        // ক্যারেক্টার এবং অন্যান্য গতিশীল উপাদান আঁকা
+        handlePlayerMovement();
+        hero.update();
+        villain.update();
+        projectiles.forEach(p => p.update());
+        handlePowerups();
+        handleCollisions();
+    }
+}
+
+function startGame() {
+    document.getElementById('start-screen').style.opacity = '0';
+    setTimeout(() => {
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('game-container').style.display = 'block';
+        init(); gameRunning = true; gameOver = false;
+        const bgMusic = document.getElementById('bg-music');
+        bgMusic.volume = 0.2; bgMusic.play().catch(e => {});
+        gameLoop();
+    }, 500);
+}
+
+window.addEventListener('resize', () => { if (gameRunning) init(); });
+
+window.onload = () => {
+    loadAssets(() => {
+        const loadingScreen = document.getElementById('loading-screen');
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => { loadingScreen.style.display = 'none'; document.getElementById('start-screen').style.display = 'flex'; }, 500);
+        document.getElementById('start-button').addEventListener('click', startGame);
+        setupControls();
+    });
+};
+
+</script>
+</body>
+</html>
